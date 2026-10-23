@@ -1,0 +1,95 @@
+{
+  "empresa": "Auto Peças Horizonte LTDA (Demonstração)",
+  "cnpj": "12.345.678/0001-90",
+  "bancos": [
+    { "id": "sys_itau", "nome": "Itaú Principal" },
+    { "id": "sys_bradesco", "nome": "Bradesco Cobrança" },
+    { "id": "sys_santander", "nome": "Santander Folha" }
+  ],
+  "lancamentos": [
+    {
+      "banco": "sys_itau",
+      "dataVencimento": "2026-10-25",
+      "fornecedor": "Bosch Freios e Componentes Automotivos",
+      "descricao": "Duplicata 4091/01 - Pastilhas e Fluido DOT4",
+      "categoria": "Fornecedores",
+      "formaPagamento": "Boleto",
+      "valor": 3450.80,
+      "status": "Em Aberto"
+    },
+    {
+      "banco": "sys_itau",
+      "dataVencimento": "2026-10-20",
+      "fornecedor": "SKF Rolamentos e Retentores",
+      "descricao": "NF-e 8921 - Rolamentos de Roda Dianteira Gol/Palio",
+      "categoria": "Fornecedores",
+      "formaPagamento": "PIX",
+      "valor": 1820.00,
+      "status": "Pago",
+      "dataPagamento": "2026-10-20"
+    },
+    {
+      "banco": "sys_itau",
+      "dataVencimento": "2026-10-28",
+      "fornecedor": "Companhia de Energia Elétrica",
+      "descricao": "Fatura Mensal Galpão Loja e Estoque Matriz",
+      "categoria": "Contas de Consumo",
+      "formaPagamento": "Débito Automático",
+      "valor": 845.60,
+      "status": "Em Aberto"
+    },
+    {
+      "banco": "sys_bradesco",
+      "dataVencimento": "2026-10-18",
+      "fornecedor": "Cobreq Pastilhas e Sapatas",
+      "descricao": "Boleto Bancário 2891 - Reposição Linha Pesada",
+      "categoria": "Fornecedores",
+      "formaPagamento": "Boleto",
+      "valor": 2690.40,
+      "status": "Pago",
+      "dataPagamento": "2026-10-18"
+    },
+    {
+      "banco": "sys_bradesco",
+      "dataVencimento": "2026-10-30",
+      "fornecedor": "Locadora de Imóveis Serra Mar",
+      "descricao": "Aluguel Galpão de Distribuição e Estacionamento",
+      "categoria": "Infraestrutura",
+      "formaPagamento": "Transferência TED",
+      "valor": 4500.00,
+      "status": "Em Aberto"
+    },
+    {
+      "banco": "sys_bradesco",
+      "dataVencimento": "2026-10-15",
+      "fornecedor": "Telefonia & Internet Fibra Corporativa",
+      "descricao": "Links Dedicados Loja 1 e Vendas Balcão",
+      "categoria": "Telecomunicação",
+      "formaPagamento": "Boleto",
+      "valor": 389.90,
+      "status": "Pago",
+      "dataPagamento": "2026-10-15"
+    },
+    {
+      "banco": "sys_santander",
+      "dataVencimento": "2026-10-20",
+      "fornecedor": "Folha de Pagamento - Equipe Vendas Balcão",
+      "descricao": "Adiantamento Quinzenal (Vales de Vendedores)",
+      "categoria": "Pessoal",
+      "formaPagamento": "Folha Automática",
+      "valor": 6800.00,
+      "status": "Pago",
+      "dataPagamento": "2026-10-20"
+    },
+    {
+      "banco": "sys_santander",
+      "dataVencimento": "2026-11-05",
+      "fornecedor": "Folha de Pagamento - Saldo Mensal",
+      "descricao": "Crédito Salarial Consolidado + Encargos",
+      "categoria": "Pessoal",
+      "formaPagamento": "Folha Automática",
+      "valor": 12450.00,
+      "status": "Em Aberto"
+    }
+  ]
+}

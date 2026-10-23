@@ -1,0 +1,1745 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Controle de Pagamentos PRO</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <script src="tailwind.js"></script>
+    <style>
+        table { table-layout: auto; width: 100%; border-collapse: collapse; }
+        th { white-space: normal; vertical-align: middle; }
+        td { white-space: nowrap; vertical-align: middle; }
+        .col-desc { white-space: normal !important; word-wrap: break-word; min-width: 150px; }
+        
+        .table-container-scroll { overflow-x: auto; max-width: 100%; padding-bottom: 8px; }
+
+        /* Scroll interno com header fixo no comparativo */
+        .global-table-scroll { max-height: 450px; overflow-y: auto; }
+        .global-table-scroll thead th { position: sticky; top: 0; z-index: 1; background-color: #e2e8f0; }
+
+        /* Grid responsivo do comparativo */
+        #viewGlobal { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
+        #viewGlobal.hidden { display: none !important; }
+        
+        @media print { 
+            .no-print { display: none !important; } 
+            body { background: #fff; color: #000; padding: 0; margin: 0; font-size: 11px; } 
+            @page { size: landscape; margin: 8mm; }
+            
+            .max-w-7xl, .max-w-[95rem] { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; }
+            table { table-layout: auto !important; width: 100% !important; border-collapse: collapse !important; border: 1px solid #ccc !important; page-break-inside: auto !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            
+            .table-container-scroll, .global-table-scroll {
+                overflow: visible !important;
+                overflow-x: visible !important;
+                overflow-y: visible !important;
+                max-height: none !important;
+                height: auto !important;
+            }
+
+            #viewGlobal, #viewGlobal > div, .overflow-hidden, .overflow-y-auto {
+                overflow: visible !important;
+                overflow-x: visible !important;
+                overflow-y: visible !important;
+                max-height: none !important;
+                height: auto !important;
+            }
+
+            /* No comparativo, ocultar bancos vazios automaticamente na impressão */
+            .banco-card-vazio { display: none !important; }
+
+            body.print-modo-unico #viewGlobal { 
+                display: none !important; 
+            }
+            
+            body.print-modo-comparativo #viewUnica { 
+                display: none !important; 
+            }
+
+            /* Grid de impressão adapta-se ao número de bancos */
+            #viewGlobal { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important; gap: 6px !important; }
+            #viewGlobal > div { break-inside: avoid; page-break-inside: avoid; box-shadow: none !important; border: 1px solid #ccc !important; }
+
+            thead { display: table-header-group !important; }
+            tfoot { display: table-footer-group !important; }
+            
+            tr { 
+                page-break-inside: avoid !important; 
+                break-inside: avoid !important; 
+                page-break-after: auto !important; 
+                border-bottom: 1px solid #e2e8f0 !important; 
+            }
+            
+            th { 
+                font-size: 9px !important; font-weight: 900 !important; padding: 4px 2px !important;
+                background-color: #f1f5f9 !important; color: #000 !important; text-transform: uppercase !important; text-align: center !important;
+            }
+            td { 
+                font-size: 10px !important; font-weight: 700 !important; padding: 4px !important; 
+                white-space: normal !important; word-break: break-word !important; text-align: center !important;
+            }
+            td.col-desc { text-align: left !important; }
+
+            /* Ocultar colunas ID e NF na impressão do comparativo */
+            #viewGlobal .col-id-g, #viewGlobal .col-nf-g { display: none !important; }
+            
+            .col-valor { width: 14% !important; text-align: right !important; }
+            .col-desc { width: 28% !important; }
+            .col-cat { width: 10% !important; }
+            .col-parc { width: 7% !important; }
+            .col-venc { width: 12% !important; }
+            .col-status { width: 14% !important; }
+            
+            td.col-status .flex { display: flex !important; flex-direction: column !important; align-items: center !important; gap: 2px !important; }
+            td.col-status span, td.col-cat span { font-size: 8px !important; padding: 2px !important; border: 1px solid #cbd5e1 !important; }
+            
+            ::-webkit-scrollbar { display: none !important; }
+
+            /* ================================================
+               OPÇÃO 2 — RELATÓRIO DEDICADO PARA IMPRESSÃO
+               Quando #relatorio-impressao existe, esconde o app
+               e exibe apenas o relatório limpo.
+            ================================================ */
+            body.modo-relatorio-impressao > div:not(#relatorio-impressao) {
+                display: none !important;
+            }
+
+            #relatorio-impressao {
+                display: block !important;
+                width: 100%;
+                font-family: Arial, sans-serif;
+                font-size: 11px;
+                color: #000;
+                background: #fff;
+            }
+
+            #relatorio-impressao .rel-titulo {
+                font-size: 14px;
+                font-weight: 900;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 2mm;
+            }
+
+            #relatorio-impressao .rel-subtitulo {
+                font-size: 9px;
+                color: #555;
+                margin-bottom: 4mm;
+            }
+
+            #relatorio-impressao .rel-banco {
+                margin-bottom: 6mm;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            #relatorio-impressao .rel-banco-header {
+                padding: 3px 6px;
+                font-size: 11px;
+                font-weight: 900;
+                color: #fff;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1mm;
+            }
+
+            #relatorio-impressao .rel-banco-resumo {
+                display: flex;
+                gap: 12px;
+                font-size: 9px;
+                font-weight: 700;
+                padding: 2px 6px;
+                background: #f1f5f9;
+                border: 1px solid #e2e8f0;
+                border-bottom: none;
+            }
+
+            #relatorio-impressao table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                border: 1px solid #ccc !important;
+                table-layout: auto !important;
+            }
+
+            #relatorio-impressao thead th {
+                background-color: #e2e8f0 !important;
+                font-size: 8px !important;
+                font-weight: 900 !important;
+                text-transform: uppercase !important;
+                padding: 3px 4px !important;
+                border: 1px solid #ccc !important;
+                text-align: center !important;
+                color: #000 !important;
+            }
+
+            #relatorio-impressao tbody td {
+                font-size: 9px !important;
+                padding: 3px 4px !important;
+                border: 1px solid #ddd !important;
+                vertical-align: middle !important;
+                white-space: normal !important;
+                word-break: break-word !important;
+            }
+
+            #relatorio-impressao tbody td.rel-desc { text-align: left !important; }
+            #relatorio-impressao tbody td.rel-valor { text-align: right !important; font-weight: 900 !important; }
+            #relatorio-impressao tbody td.rel-center { text-align: center !important; }
+
+            #relatorio-impressao .rel-tag-pago { background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; padding: 1px 4px; border-radius: 9999px; font-size: 8px; font-weight: 900; }
+            #relatorio-impressao .rel-tag-aberto { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 1px 4px; border-radius: 9999px; font-size: 8px; font-weight: 900; }
+            #relatorio-impressao .rel-tag-atrasado { background-color: #dc2626; color: #fff; padding: 1px 4px; border-radius: 2px; font-size: 7px; font-weight: 900; margin-left: 2px; }
+            #relatorio-impressao .rel-tag-prox { background-color: #d97706; color: #fff; padding: 1px 4px; border-radius: 2px; font-size: 7px; font-weight: 900; margin-left: 2px; }
+            #relatorio-impressao .rel-cat-esp { background-color: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; padding: 1px 4px; border-radius: 2px; font-size: 7px; font-weight: 900; }
+            #relatorio-impressao .rel-cat-nor { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 1px 4px; border-radius: 2px; font-size: 7px; font-weight: 900; }
+
+            #relatorio-impressao .rel-rodape {
+                margin-top: 4mm;
+                font-size: 8px;
+                color: #888;
+                text-align: right;
+            }
+
+            /* Linha vermelha para vencidos */
+            #relatorio-impressao tr.rel-linha-vencida td { background-color: #fff5f5 !important; }
+            /* Linha âmbar para prox ao vencimento */
+            #relatorio-impressao tr.rel-linha-alerta td { background-color: #fffbeb !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+<div class="max-w-[95rem] mx-auto p-4">
+    
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 border-b pb-4 border-slate-200">
+        <div>
+            <h1 class="text-3xl font-black text-slate-800 tracking-tight">Controle de Pagamentos PRO</h1>
+            <p class="text-xs text-slate-500 font-medium">Gestão Financeira Avançada</p>
+        </div>
+        
+        <div id="containerBotoesBancos" class="bg-slate-200 p-1 rounded-xl flex items-center shadow-inner no-print border border-slate-300 gap-1 flex-wrap justify-center overflow-x-auto max-w-full" style="scrollbar-width: thin;">
+        </div>
+
+        <div class="flex items-center gap-2 mt-2 sm:mt-0">
+            <button id="btnInstalarPwa" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold transition shadow-md no-print text-sm flex items-center gap-1 whitespace-nowrap">
+                📲 Instalar App
+            </button>
+            <button id="btnModoDemo" onclick="carregarDadosDemonstracao()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg font-semibold transition shadow-md no-print text-sm flex items-center gap-1 whitespace-nowrap" title="Popular dados fictícios para teste de recrutadores">
+                ✨ Modo Demo
+            </button>
+            <button onclick="abrirConfiguracoes()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg font-semibold transition shadow-md no-print text-sm flex items-center gap-1 whitespace-nowrap">
+                ⚙️ Configurações
+            </button>
+            <button id="novoBtn" onclick="abrirModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition shadow-md no-print whitespace-nowrap">
+                + Novo Lançamento
+            </button>
+        </div>
+    </div>
+
+    <div id="centralAlertas" class="mb-4 hidden no-print"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div class="bg-white p-4 rounded shadow border-l-4 border-blue-500">
+            <div class="text-slate-500 text-sm font-bold uppercase">Total Geral</div>
+            <div id="cTotal" class="text-2xl font-bold text-slate-800">R$ 0,00</div>
+        </div>
+        <div class="bg-white p-4 rounded shadow border-l-4 border-green-500">
+            <div class="text-slate-500 text-sm font-bold uppercase">Total Pago</div>
+            <div id="cPago" class="text-2xl font-bold text-green-600">R$ 0,00</div>
+        </div>
+        <div class="bg-white p-4 rounded shadow border-l-4 border-red-500">
+            <div class="text-slate-500 text-sm font-bold uppercase">Em Aberto</div>
+            <div id="cAberto" class="text-2xl font-bold text-red-600">R$ 0,00</div>
+        </div>
+        <div class="bg-white p-4 rounded shadow border-l-4 border-slate-400">
+            <div class="text-slate-500 text-sm font-bold uppercase">Qtd. Registros</div>
+            <div id="cQtd" class="text-2xl font-bold text-slate-700">0</div>
+        </div>
+    </div>
+
+    <div class="bg-white p-4 rounded shadow mb-4 no-print">
+        <div class="grid grid-cols-1 md:grid-cols-5 lg:grid-cols-11 gap-2">
+            <input id="fBusca" placeholder="Pesquisar descrição ou NF..." class="border p-2 rounded lg:col-span-3 text-sm">
+            
+            <select id="fCategoria" class="border p-2 rounded text-sm lg:col-span-2">
+                <option value="">Todas Categorias</option>
+                <option value="Normal">Somente Normal</option>
+                <option value="Especial">Somente Especial</option>
+            </select>
+
+            <select id="fStatus" class="border p-2 rounded text-sm lg:col-span-2">
+                <option value="">Todos Status</option>
+                <option value="Pago">Pago</option>
+                <option value="Em Aberto">Em Aberto</option>
+                <option value="Vencidos">⚠️ Apenas Vencidos</option>
+                <option value="Alerta">⏳ Vencendo (3 Dias)</option>
+            </select>
+            
+            <input id="fIni" type="date" class="border p-2 rounded text-sm lg:col-span-2">
+            <input id="fFim" type="date" class="border p-2 rounded text-sm lg:col-span-2">
+            
+            <div class="lg:col-span-11 grid grid-cols-3 md:grid-cols-6 gap-1 mt-2">
+                <button onclick="atalho('hoje')" class="bg-slate-200 hover:bg-slate-300 text-[11px] py-1 rounded font-medium">Hoje</button>
+                <button onclick="atalho(7)" class="bg-slate-200 hover:bg-slate-300 text-[11px] py-1 rounded font-medium">7 Dias</button>
+                <button onclick="atalho(15)" class="bg-slate-200 hover:bg-slate-300 text-[11px] py-1 rounded font-medium">15 Dias</button>
+                <button onclick="atalho('mes_atual')" class="bg-slate-200 hover:bg-slate-300 text-[11px] py-1 rounded font-medium">Mês Atual</button>
+                <button onclick="atalho('mes_ant')" class="bg-slate-200 hover:bg-slate-300 text-[11px] py-1 rounded font-medium">Mês Ant.</button>
+                <button onclick="limparFiltros()" class="bg-orange-100 hover:bg-orange-200 text-orange-700 text-[11px] py-1 rounded font-medium">Limpar Tudo</button>
+            </div>
+        </div>
+        
+        <div class="mt-4 pt-3 border-t flex flex-wrap gap-2 justify-between items-center">
+            <div class="flex flex-wrap gap-1 items-center">
+                <span class="text-xs font-bold text-slate-500 mr-1 uppercase">Períodos:</span>
+                <button onclick="atalho('ano_atual')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded font-semibold border border-indigo-200">Ano Atual</button>
+                <button onclick="atalho('proximos_30')" class="bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded font-semibold border border-purple-200">Próx. 30 Dias</button>
+            </div>
+            
+            <div class="flex gap-2 flex-wrap">
+                <button onclick="exportarCSV()" class="bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-200 transition">📊 CSV</button>
+                <button onclick="showResumoProfessional()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition">📈 Resumo</button>
+                <button onclick="imprimir()" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700 transition">🖨️ Imprimir</button>
+                <button id="btnBackup" onclick="exportarBackupGeral()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition">📥 Backup Geral</button>
+                <button id="btnImport" onclick="importarBackupTauri()" class="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition">📤 Importar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="viewUnica" class="bg-white rounded shadow table-container-scroll">
+        <table class="w-full text-left border-collapse">
+            <thead class="bg-slate-200 text-slate-700">
+                <tr>
+                    <th class="p-3 border-b text-[11px] font-black tracking-wider col-id">ID</th>
+                    <th class="p-3 border-b text-[11px] font-black tracking-wider col-nf">NF</th>
+                    <th class="p-3 border-b text-[11px] font-black tracking-wider col-desc">DESCRIÇÃO</th>
+                    <th class="p-3 border-b text-[11px] font-black tracking-wider col-cat">CATEGORIA</th>
+                    <th class="p-3 border-b text-[11px] font-black tracking-wider col-parc">PARC</th>
+                    <th class="p-3 border-b text-[11px] font-black tracking-wider col-valor">VALOR</th>
+                    <th class="p-3 border-b text-[11px] font-black tracking-wider col-venc">VENCIMENTO</th>
+                    <th class="p-3 border-b text-[11px] font-black tracking-wider col-pag">PAGAMENTO</th>
+                    <th class="p-3 border-b text-[11px] font-black tracking-wider col-status">STATUS</th>
+                    <th class="p-3 border-b text-[11px] font-black tracking-wider no-print col-acoes text-center">AÇÕES</th>
+                </tr>
+            </thead>
+            <tbody id="tbody" class="text-slate-600 font-semibold"></tbody>
+        </table>
+    </div>
+
+    <div id="barraModoGlobal" class="hidden mb-3 no-print">
+        <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-bold text-slate-500 uppercase">Comparativo:</span>
+            <label class="flex items-center gap-1.5 cursor-pointer bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm hover:bg-slate-50 transition">
+                <input type="checkbox" id="toggleOcultarVazios" class="accent-indigo-600" onchange="render()">
+                <span class="text-xs font-bold text-slate-600">🚫 Ocultar bancos sem lançamentos</span>
+            </label>
+        </div>
+    </div>
+
+    <div id="viewGlobal" class="hidden items-start">
+    </div>
+</div>
+
+<div id="modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
+        <div class="bg-blue-600 p-4 text-white font-bold text-lg" id="modalTitle">Detalhes do Lançamento</div>
+        <form id="form" class="p-6 grid md:grid-cols-2 gap-4">
+            <input type="hidden" id="id">
+            
+            <div class="md:col-span-2">
+                <label class="text-xs font-bold text-slate-500 uppercase">Descrição</label>
+                <input id="descricao" list="sugs" required class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                <datalist id="sugs"></datalist>
+            </div>
+
+            <div>
+                <label class="text-xs font-bold text-slate-500 uppercase">Número da Nota Fiscal (NF)</label>
+                <input id="notaFiscal" type="text" placeholder="Opcional" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+            </div>
+
+            <div>
+                <label class="text-xs font-bold text-slate-500 uppercase">Categoria</label>
+                <select id="categoriaLanc" required class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                    <option value="" disabled selected>Selecione...</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Especial">Especial</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="text-xs font-bold text-slate-500 uppercase">Valor (Total se parcelado)</label>
+                <input id="valor" type="number" step="0.01" required class="w-full border p-2 rounded text-sm">
+            </div>
+            
+            <div>
+                <label class="text-xs font-bold text-slate-500 uppercase">Vencimento (Inicial)</label>
+                <input id="vencimento" type="date" required class="w-full border p-2 rounded text-sm">
+            </div>
+            
+            <div id="containerParcelas">
+                <label class="text-xs font-bold text-slate-500 uppercase">Qtd Parcelas</label>
+                <input id="parcelas" type="number" value="1" min="1" class="w-full border p-2 rounded text-sm">
+            </div>
+            
+            <div id="containerStatus" class="hidden">
+                <label class="text-xs font-bold text-slate-500 uppercase">Status</label>
+                <select id="status" class="w-full border p-2 rounded text-sm" onchange="gerenciarInputPagamentoAutomatico()">
+                    <option value="Em Aberto">Em Aberto</option>
+                    <option value="Pago">Pago</option>
+                </select>
+            </div>
+            
+            <div id="containerPagamento" class="hidden">
+                <label class="text-xs font-bold text-slate-500 uppercase">Data de Pagamento</label>
+                <input id="pagamento" type="date" class="w-full border p-2 rounded text-sm">
+            </div>
+            
+            <div id="previewContainer" class="md:col-span-2 hidden">
+                <div id="previewParcelas" class="p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg font-semibold text-xs tracking-wide"></div>
+            </div>
+
+            <div class="md:col-span-2 flex justify-end gap-3 mt-4">
+                <button type="button" onclick="fecharModal()" class="bg-slate-200 text-slate-700 px-6 py-2 rounded-lg font-bold text-sm">Cancelar</button>
+                <button type="submit" class="bg-blue-600 text-white px-8 py-2 rounded-lg font-bold shadow-lg hover:bg-blue-700 text-sm">Salvar Registro</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="resumoModal" class="hidden fixed inset-0 bg-black/50 p-4 overflow-auto z-50 flex items-center justify-center">
+    <div class="bg-white max-w-2xl w-full p-6 rounded-xl shadow-2xl">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+            <h2 class="text-2xl font-black text-slate-800">📊 Resumo Econômico Analítico</h2>
+            <button onclick="document.getElementById('resumoModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+        </div>
+        <div id="resumoConteudo" class="space-y-4 max-h-[70vh] overflow-y-auto pr-2"></div>
+        <button onclick="document.getElementById('resumoModal').classList.add('hidden')" class="mt-6 w-full bg-slate-800 hover:bg-slate-900 text-white py-2.5 rounded-lg font-bold text-sm transition">Fechar Painel</button>
+    </div>
+</div>
+
+<div id="confirmModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60] no-print">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transition-all transform scale-100">
+        <div id="confirmTitle" class="p-4 text-white font-bold text-base flex items-center gap-2"></div>
+        <div class="p-6">
+            <p id="confirmMessage" class="text-slate-600 text-sm font-medium whitespace-pre-line leading-relaxed"></p>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="btnConfirmCancelar" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-5 py-2 rounded-lg font-bold text-xs transition">Cancelar</button>
+                <button id="btnConfirmSim" class="text-white px-5 py-2 rounded-lg font-bold shadow-md transition text-xs"></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="alertModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[70] no-print">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div id="alertTitle" class="p-4 text-white font-bold text-base"></div>
+        <div class="p-6">
+            <p id="alertMessage" class="text-slate-600 text-sm font-medium whitespace-pre-line leading-relaxed"></p>
+            <div class="flex justify-end mt-6">
+                <button onclick="document.getElementById('alertModal').classList.add('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-xs transition shadow-md">Ok</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="configModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[80] no-print">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="bg-slate-800 p-4 text-white font-bold text-lg flex justify-between items-center">
+            <span>⚙️ Configurações</span>
+            <button onclick="fecharConfiguracoes()" class="text-slate-400 hover:text-white">&times;</button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Gerenciamento de Bancos</h3>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h4 class="text-sm font-bold text-slate-600 uppercase mb-3" id="configFormTitle">Criar Novo Banco</h4>
+                    <form id="formBanco" class="space-y-3">
+                        <input type="hidden" id="bancoIdOriginal">
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase">Nome</label>
+                            <input id="bancoNome" required class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase">Ícone (Emoji)</label>
+                            <input id="bancoIcone" value="🏢" required class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 uppercase">Cor</label>
+                            <select id="bancoCor" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                                <option value="bg-blue-600">Azul</option>
+                                <option value="bg-indigo-600">Índigo</option>
+                                <option value="bg-sky-600">Sky</option>
+                                <option value="bg-emerald-600">Esmeralda</option>
+                                <option value="bg-amber-600">Âmbar</option>
+                                <option value="bg-red-600">Vermelho</option>
+                                <option value="bg-purple-600">Roxo</option>
+                                <option value="bg-slate-600">Cinza</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" onclick="cancelarEdicaoBanco()" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm w-full">Cancelar</button>
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-blue-700 w-full" id="btnSalvarBanco">Adicionar</button>
+                        </div>
+                    </form>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-slate-600 uppercase mb-3">Bancos Existentes</h4>
+                    <div id="listaBancosConfig" class="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                        <!-- renderizado via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const ICON_PAGO = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+const ICON_EDIT = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>`;
+const ICON_DEL = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>`;
+const ICON_CLONE = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>`;
+
+const ABAS = Object.freeze({ COMPARATIVO: 'comparativo' });
+
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function formatarDataISO(data = new Date()) {
+    const d = (data instanceof Date) ? data : new Date(data);
+    const ano = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+}
+
+let DB_NAME = ''; 
+let db, data = [];
+let MODO_GLOBAL = false;
+let ABA_ATIVA = '';
+
+function gerarUUID() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        let r = (crypto.getRandomValues(new Uint8Array(1))[0] & 15) >> (c === 'x' ? 0 : 2);
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+
+function exibirIdAbreviado(id) {
+    if (typeof id === 'string' && id.length > 12) return id.substring(0, 8) + '…';
+    return id;
+}
+
+function obterBancos() {
+    let bancosJson = localStorage.getItem('sys_bancos');
+    if (!bancosJson) {
+        const bancosPadrao = [
+            { id: 'controle_pagamentos_pessoal', nome: 'Pessoal', icone: '👤', cor: 'bg-blue-600' },
+            { id: 'controle_pagamentos_abel', nome: 'Abel', icone: '🏬', cor: 'bg-indigo-600' },
+            { id: 'controle_pagamentos_luiz', nome: 'Luiz', icone: '🏬', cor: 'bg-sky-600' }
+        ];
+        localStorage.setItem('sys_bancos', JSON.stringify(bancosPadrao));
+        return bancosPadrao;
+    }
+    return JSON.parse(bancosJson);
+}
+
+function salvarBancosLocal(lista) {
+    localStorage.setItem('sys_bancos', JSON.stringify(lista));
+}
+
+const openDB = (nome = DB_NAME) => new Promise((r, j) => {
+    try {
+        let q = indexedDB.open(nome, 1);
+        q.onupgradeneeded = e => e.target.result.createObjectStore('lanc', { keyPath: 'id', autoIncrement: true });
+        q.onsuccess = () => { if (nome === DB_NAME) db = q.result; r(q.result); };
+        q.onerror = e => j(q.error || e.target?.error || new Error(`Falha ao abrir o banco de dados "${nome}"`));
+        q.onblocked = () => j(new Error(`Abertura do banco "${nome}" bloqueada por outra aba ou conexão ativa.`));
+    } catch (err) {
+        j(err);
+    }
+});
+
+const store = (m) => db.transaction('lanc', m).objectStore('lanc');
+
+async function listarRegistros(database = db) {
+    return new Promise((resolve, reject) => {
+        try {
+            if (!database) {
+                return reject(new Error("Banco de dados não inicializado."));
+            }
+            if (!database.objectStoreNames.contains('lanc')) {
+                return resolve([]);
+            }
+            const tx = database.transaction('lanc', 'readonly');
+            const q = tx.objectStore('lanc').getAll();
+            q.onsuccess = () => resolve(q.result || []);
+            q.onerror = e => reject(q.error || e.target?.error || new Error("Falha ao listar registros do IndexedDB"));
+            tx.onabort = () => reject(tx.error || new Error("Transação abortada ao listar registros"));
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+async function obterRegistrosBanco(bancoId) {
+    let dbTemp = null;
+    try {
+        dbTemp = await openDB(bancoId);
+        const registros = await listarRegistros(dbTemp);
+        return registros || [];
+    } finally {
+        if (dbTemp) {
+            try { dbTemp.close(); } catch (_) {}
+        }
+    }
+}
+
+async function salvarRegistro(item) {
+    return new Promise((resolve, reject) => {
+        if (!item.id) item.id = gerarUUID();
+        let t = store('readwrite').put(item);
+        t.onsuccess = () => resolve(t.result);
+        t.onerror = e => reject(t.error || e.target?.error || new Error('Falha ao salvar registro no IndexedDB'));
+        if (t.transaction) {
+            t.transaction.onabort = () => reject(t.transaction.error || new Error('Transação abortada ao salvar registro'));
+        }
+    });
+}
+async function atualizarRegistro(item) {
+    return new Promise((resolve, reject) => {
+        let t = store('readwrite').put(item);
+        t.onsuccess = () => resolve(t.result);
+        t.onerror = e => reject(t.error || e.target?.error || new Error('Falha ao atualizar registro no IndexedDB'));
+        if (t.transaction) {
+            t.transaction.onabort = () => reject(t.transaction.error || new Error('Transação abortada ao atualizar registro'));
+        }
+    });
+}
+async function excluirRegistro(id) {
+    return new Promise((resolve, reject) => {
+        let t = store('readwrite').delete(id);
+        t.onsuccess = () => resolve(t.result);
+        t.onerror = e => reject(t.error || e.target?.error || new Error('Falha ao excluir registro no IndexedDB'));
+        if (t.transaction) {
+            t.transaction.onabort = () => reject(t.transaction.error || new Error('Transação abortada ao excluir registro'));
+        }
+    });
+}
+
+function mostrarConfirmacaoCustomizada(titulo, mensagem, textoBotaoSim = "Sim", corTitulo = "bg-amber-600") {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const titleEl = document.getElementById('confirmTitle');
+        const btnSim = document.getElementById('btnConfirmSim');
+        titleEl.className = `${corTitulo} p-4 text-white font-bold text-base flex items-center gap-2`; titleEl.innerHTML = titulo;
+        document.getElementById('confirmMessage').textContent = mensagem; btnSim.textContent = textoBotaoSim;
+        btnSim.className = `${corTitulo} hover:opacity-80 text-white px-5 py-2 rounded-lg font-bold shadow-md transition text-xs`;
+        modal.classList.remove('hidden');
+        const clicarSim = () => { fechar(); resolve(true); }; const clicarCancelar = () => { fechar(); resolve(false); };
+        function fechar() { modal.classList.add('hidden'); btnSim.removeEventListener('click', clicarSim); document.getElementById('btnConfirmCancelar').removeEventListener('click', clicarCancelar); }
+        btnSim.addEventListener('click', clicarSim); document.getElementById('btnConfirmCancelar').addEventListener('click', clicarCancelar);
+    });
+}
+
+// ==========================================
+// MODO DEMONSTRAÇÃO (SEED DEMO DATA)
+// ==========================================
+async function carregarDadosDemonstracao() {
+    try {
+        const bancosDemo = [
+            { id: "sys_itau", nome: "Itaú Principal", cor: "bg-orange-600" },
+            { id: "sys_bradesco", nome: "Bradesco Cobrança", cor: "bg-red-600" },
+            { id: "sys_santander", nome: "Santander Folha", cor: "bg-rose-700" }
+        ];
+        salvarBancos(bancosDemo);
+        renderizarBotoesBancos();
+
+        const dadosDemo = [
+            { id: "demo-01", vencimento: "2026-10-25", data: "2026-10-25", doc: "DUP-4091", categoria: "Fornecedores", fornecedor: "Bosch Freios e Peças LTDA", descricao: "Pastilhas e Fluidos DOT4", forma: "Boleto", valor: 3450.80, status: "Em Aberto" },
+            { id: "demo-02", vencimento: "2026-10-20", data: "2026-10-20", doc: "NFE-8921", categoria: "Fornecedores", fornecedor: "SKF Rolamentos do Brasil", descricao: "Rolamentos de Roda Dianteira", forma: "PIX", valor: 1820.00, status: "Pago" },
+            { id: "demo-03", vencimento: "2026-10-28", data: "2026-10-28", doc: "FAT-1026", categoria: "Contas de Consumo", fornecedor: "Companhia Elétrica Regional", descricao: "Fatura Galpão Distribuição", forma: "Débito", valor: 845.60, status: "Em Aberto" },
+            { id: "demo-04", vencimento: "2026-10-18", data: "2026-10-18", doc: "BOL-2891", categoria: "Fornecedores", fornecedor: "Cobreq Linha Pesada", descricao: "Reposição Lonas e Sapatas", forma: "Boleto", valor: 2690.40, status: "Pago" },
+            { id: "demo-05", vencimento: "2026-10-30", data: "2026-10-30", doc: "LOC-2026", categoria: "Infraestrutura", fornecedor: "Locadora Serra Mar Imóveis", descricao: "Aluguel Galpão Logística", forma: "TED", valor: 4500.00, status: "Em Aberto" },
+            { id: "demo-06", vencimento: "2026-10-15", data: "2026-10-15", doc: "TEL-4412", categoria: "Telecomunicação", fornecedor: "Operadora Fibra Óptica", descricao: "Links Dedicados Loja 1 e Vendas", forma: "Boleto", valor: 389.90, status: "Pago" }
+        ];
+
+        for (const item of dadosDemo) {
+            await salvarRegistro(item);
+        }
+        data = await listarRegistros();
+        await render();
+        mostrarAlertaCustomizado("✨ Modo Demo Ativado", "Dados fictícios de demonstração carregados com sucesso no banco atual!\n\nVocê pode testar relatórios paisagem A4, comparativo multi-bancos e filtros.", "bg-emerald-600");
+    } catch (err) {
+        console.error("Erro ao carregar dados de demonstração:", err);
+        mostrarAlertaCustomizado("Erro", "Falha ao carregar dados de demonstração: " + err.message, "bg-red-600");
+    }
+}
+
+function mostrarAlertaCustomizado(titulo, mensagem, corTitulo = "bg-blue-600") {
+    document.getElementById('alertTitle').className = `${corTitulo} p-4 text-white font-bold text-base`; document.getElementById('alertTitle').textContent = titulo;
+    document.getElementById('alertMessage').textContent = mensagem; document.getElementById('alertModal').classList.remove('hidden');
+}
+
+function renderizarBotoesBancos() {
+    const bancos = obterBancos();
+    let container = document.getElementById('containerBotoesBancos');
+    if (!container) return;
+    let html = '';
+    bancos.forEach(b => {
+        let isAtivo = (ABA_ATIVA === b.id);
+        let classeCor = isAtivo ? `${b.cor} text-white shadow` : `text-slate-600 hover:text-slate-800`;
+        html += `<button onclick="mudarAmbiente('${escapeHTML(b.id)}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${classeCor} flex-shrink-0">
+            <span>${escapeHTML(b.icone)}</span> ${escapeHTML(b.nome)}
+        </button>`;
+    });
+    html += `<div class="w-px h-6 bg-slate-300 mx-1 hidden sm:block"></div>`;
+    let globalAtivo = (MODO_GLOBAL);
+    let classGlobal = globalAtivo ? `bg-indigo-600 text-white shadow` : `text-slate-600 hover:text-indigo-800 border border-transparent hover:border-indigo-300 hover:bg-indigo-50`;
+    html += `<button onclick="ativarVisaoGlobal()" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 flex-shrink-0 ${classGlobal}">
+        <span>🌐</span> Comparativo Lado a Lado
+    </button>`;
+    container.innerHTML = html;
+}
+
+async function mudarAmbiente(tipo) {
+    try {
+        MODO_GLOBAL = false;
+        ABA_ATIVA = tipo;
+        DB_NAME = tipo;
+        
+        document.getElementById('viewGlobal').classList.add('hidden'); 
+        document.getElementById('barraModoGlobal').classList.add('hidden');
+        document.getElementById('viewUnica').classList.remove('hidden'); document.getElementById('novoBtn').classList.remove('hidden');
+        document.getElementById('btnBackup').classList.remove('hidden'); document.getElementById('btnImport').classList.remove('hidden');
+        
+        renderizarBotoesBancos();
+        
+        if(db) db.close(); 
+        await openDB(); 
+        await carregar();
+    } catch (err) {
+        console.error("Erro ao mudar ambiente:", err);
+        mostrarAlertaCustomizado("Erro de Conexão", "Falha ao alternar para o banco: " + (err.message || err), "bg-red-600");
+    }
+}
+
+async function ativarVisaoGlobal() {
+    MODO_GLOBAL = true;
+    ABA_ATIVA = 'comparativo';
+    
+    renderizarBotoesBancos();
+    
+    document.getElementById('novoBtn').classList.add('hidden');
+    document.getElementById('centralAlertas').classList.add('hidden'); 
+    document.getElementById('viewUnica').classList.add('hidden');
+    document.getElementById('barraModoGlobal').classList.remove('hidden');
+    document.getElementById('viewGlobal').classList.remove('hidden');
+    render();
+}
+
+function abrirConfiguracoes() {
+    document.getElementById('configModal').classList.remove('hidden');
+    cancelarEdicaoBanco();
+    renderizarListaBancosConfig();
+}
+function fecharConfiguracoes() {
+    document.getElementById('configModal').classList.add('hidden');
+    renderizarBotoesBancos();
+}
+
+function renderizarListaBancosConfig() {
+    let bancos = obterBancos();
+    let container = document.getElementById('listaBancosConfig');
+    let html = '';
+    bancos.forEach(b => {
+        html += `<div class="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white ${b.cor}">${escapeHTML(b.icone)}</div>
+                <span class="font-bold text-sm text-slate-700">${escapeHTML(b.nome)}</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="editarBancoConfig('${escapeHTML(b.id)}')" class="text-blue-600 hover:text-blue-800 bg-blue-50 p-1.5 rounded">✏️</button>
+                <button type="button" onclick="excluirBancoConfig('${escapeHTML(b.id)}')" class="text-red-600 hover:text-red-800 bg-red-50 p-1.5 rounded">🗑️</button>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function editarBancoConfig(id) {
+    let bancos = obterBancos();
+    let b = bancos.find(x => x.id === id);
+    if (!b) return;
+    document.getElementById('bancoIdOriginal').value = b.id;
+    document.getElementById('bancoNome').value = b.nome;
+    document.getElementById('bancoIcone').value = b.icone;
+    document.getElementById('bancoCor').value = b.cor;
+    document.getElementById('configFormTitle').textContent = "Editar Banco";
+    document.getElementById('btnSalvarBanco').textContent = "Salvar";
+}
+
+function cancelarEdicaoBanco() {
+    document.getElementById('formBanco').reset();
+    document.getElementById('bancoIdOriginal').value = "";
+    document.getElementById('bancoIcone').value = "🏢";
+    document.getElementById('configFormTitle').textContent = "Criar Novo Banco";
+    document.getElementById('btnSalvarBanco').textContent = "Adicionar";
+}
+
+document.getElementById('formBanco').onsubmit = function(e) {
+    e.preventDefault();
+    let bancos = obterBancos();
+    let idOriginal = document.getElementById('bancoIdOriginal').value;
+    let nome = document.getElementById('bancoNome').value.trim();
+    let icone = document.getElementById('bancoIcone').value.trim();
+    let cor = document.getElementById('bancoCor').value;
+
+    if (idOriginal) {
+        let bIndex = bancos.findIndex(x => x.id === idOriginal);
+        if (bIndex > -1) {
+            bancos[bIndex].nome = nome;
+            bancos[bIndex].icone = icone;
+            bancos[bIndex].cor = cor;
+        }
+    } else {
+        let novoId = 'db_' + Date.now();
+        bancos.push({ id: novoId, nome: nome, icone: icone, cor: cor });
+        let q = indexedDB.open(novoId, 1);
+        q.onupgradeneeded = ev => ev.target.result.createObjectStore('lanc',{keyPath:'id',autoIncrement:true});
+    }
+    salvarBancosLocal(bancos);
+    cancelarEdicaoBanco();
+    renderizarListaBancosConfig();
+    renderizarBotoesBancos();
+};
+
+async function excluirBancoConfig(id) {
+    let bancos = obterBancos();
+    if (bancos.length <= 1) {
+        return mostrarAlertaCustomizado("Aviso", "Você não pode excluir o último banco existente.", "bg-amber-600");
+    }
+    let b = bancos.find(x => x.id === id);
+    let conf = await mostrarConfirmacaoCustomizada('🗑️ Excluir Banco', `Deseja realmente excluir o banco "${b.nome}"? TODOS OS REGISTROS DESTE BANCO SERÃO PERDIDOS PARA SEMPRE!`, 'Sim, Apagar Banco', 'bg-red-600');
+    if (conf) {
+        bancos = bancos.filter(x => x.id !== id);
+        salvarBancosLocal(bancos);
+        indexedDB.deleteDatabase(id);
+        if (ABA_ATIVA === id) {
+            mudarAmbiente(bancos[0].id);
+        } else {
+            renderizarListaBancosConfig();
+            renderizarBotoesBancos();
+        }
+    }
+}
+
+function abrirModal(){
+    document.getElementById('modalTitle').textContent = "Detalhes do Lançamento"; document.getElementById('id').value = ''; document.getElementById('form').reset();
+    document.getElementById('status').value = 'Em Aberto'; document.getElementById('pagamento').value = ''; document.getElementById('notaFiscal').value = ''; document.getElementById('categoriaLanc').value = ''; 
+    document.getElementById('containerParcelas').style.display = 'block'; document.getElementById('containerStatus').classList.add('hidden'); document.getElementById('containerPagamento').classList.add('hidden');
+    document.getElementById('previewContainer').classList.add('hidden'); document.getElementById('modal').classList.remove('hidden');
+}
+
+function fecharModal(){ document.getElementById('modal').classList.add('hidden'); document.getElementById('previewContainer').classList.add('hidden'); }
+
+function gerenciarInputPagamentoAutomatico() {
+    const statusVal = document.getElementById('status').value; const inputPagamento = document.getElementById('pagamento');
+    if(statusVal === 'Pago' && !inputPagamento.value) inputPagamento.value = formatarDataISO();
+    else if (statusVal === 'Em Aberto') inputPagamento.value = '';
+}
+
+async function carregar() {
+    if (MODO_GLOBAL) return;
+    try {
+        if (!db) await openDB();
+        data = await listarRegistros();
+        processarAlertasIniciais();
+        render();
+    } catch (err) {
+        console.error("Erro ao carregar registros:", err);
+        mostrarAlertaCustomizado("Erro ao Carregar", "Falha ao ler os dados do banco local: " + (err.message || err), "bg-red-600");
+    }
+}
+
+function obterDadosVencimento(vencimentoStr) {
+    let hoje = new Date(); hoje.setHours(0,0,0,0); let parts = vencimentoStr.split('-');
+    let dataVenc = new Date(parts[0], parts[1] - 1, parts[2]); dataVenc.setHours(0,0,0,0);
+    let diffDias = Math.ceil((dataVenc - hoje) / (1000 * 60 * 60 * 24));
+    return { dias: diffDias, vencido: diffDias < 0, alerta: diffDias >= 0 && diffDias <= 3 };
+}
+
+function processarAlertasIniciais() {
+    let vencidos = 0; let emAlerta = 0; let valorVencido = 0;
+    data.forEach(x => {
+        if(x.status === 'Em Aberto') {
+            let statusVcto = obterDadosVencimento(x.vencimento);
+            if(statusVcto.vencido) { vencidos++; valorVencido += Number(x.valor); } else if(statusVcto.alerta) emAlerta++;
+        }
+    });
+
+    const box = document.getElementById('centralAlertas');
+    if(vencidos > 0 || emAlerta > 0) {
+        box.classList.remove('hidden'); let htmlAlertas = '<div class="grid grid-cols-1 md:grid-cols-2 gap-2">';
+        if(vencidos > 0) htmlAlertas += `<div class="bg-red-50 border-l-4 border-red-500 p-3 rounded flex justify-between items-center"><div><span class="text-red-800 font-bold text-sm block">🚨 Atrasados!</span><span class="text-xs text-red-700">${vencidos} pendente(s) - <strong>R$ ${valorVencido.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong>.</span></div><button onclick="document.getElementById('fStatus').value='Vencidos'; render();" class="text-xs font-bold bg-red-600 text-white px-2 py-1 rounded">Ver</button></div>`;
+        if(emAlerta > 0) htmlAlertas += `<div class="bg-amber-50 border-l-4 border-amber-500 p-3 rounded flex justify-between items-center"><div><span class="text-amber-800 font-bold text-sm block">⏳ Vencendo!</span><span class="text-xs text-amber-700">${emAlerta} compromisso(s) nas próx 72h.</span></div><button onclick="document.getElementById('fStatus').value='Alerta'; render();" class="text-xs font-bold bg-amber-600 text-white px-2 py-1 rounded">Ver</button></div>`;
+        box.innerHTML = htmlAlertas + '</div>';
+    } else box.classList.add('hidden');
+}
+
+function obterValoresFiltros() {
+    return {
+        termo: document.getElementById('fBusca').value.toLowerCase(),
+        filtroStatus: document.getElementById('fStatus').value,
+        filtroCat: document.getElementById('fCategoria').value,
+        dIni: document.getElementById('fIni').value,
+        dFim: document.getElementById('fFim').value
+    };
+}
+
+function aplicarFiltros(lista, filtros = null) {
+    const f = filtros || obterValoresFiltros();
+
+    return lista.filter(x => {
+        if(f.termo) { let descOk = x.descricao && x.descricao.toLowerCase().includes(f.termo); let nfOk = x.notaFiscal && x.notaFiscal.toLowerCase().includes(f.termo); if(!descOk && !nfOk) return false; }
+        if(f.filtroCat && (x.categoria || 'Normal') !== f.filtroCat) return false;
+        if(f.filtroStatus) {
+            let statusVcto = obterDadosVencimento(x.vencimento);
+            if(f.filtroStatus === 'Pago' && x.status !== 'Pago') return false;
+            if(f.filtroStatus === 'Em Aberto' && x.status !== 'Em Aberto') return false;
+            if(f.filtroStatus === 'Vencidos' && (x.status !== 'Em Aberto' || !statusVcto.vencido)) return false;
+            if(f.filtroStatus === 'Alerta' && (x.status !== 'Em Aberto' || !statusVcto.alerta)) return false;
+        }
+        if(f.dIni && x.vencimento < f.dIni) return false; if(f.dFim && x.vencimento > f.dFim) return false;
+        return true;
+    }).sort((a,b) => (a.vencimento || '').localeCompare(b.vencimento || ''));
+}
+
+async function render(){ MODO_GLOBAL ? await renderGlobal() : renderUnico(); }
+
+function construirBadgeCategoria(cat) { return cat === 'Especial' ? `<span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 border border-purple-300 rounded text-[9px] font-bold uppercase shrink-0">ESPECIAL</span>` : `<span class="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-300 rounded text-[9px] font-bold uppercase shrink-0">NORMAL</span>`; }
+
+function gerarLinhaTabela(x, contexto = 'unico') {
+    let classeEstiloLinha = "border-b hover:bg-slate-50 transition text-sm"; let tagAlerta = "";
+    if(x.status === 'Em Aberto') {
+        let vcto = obterDadosVencimento(x.vencimento);
+        if(vcto.vencido) { classeEstiloLinha = "border-b bg-red-50/70 hover:bg-red-100/80 text-red-900 text-sm"; tagAlerta = '<span class="px-1.5 py-0.5 bg-red-600 text-white rounded text-[9px] font-black animate-pulse uppercase shrink-0">ATRASADO</span>'; } 
+        else if(vcto.alerta) { classeEstiloLinha = "border-b bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 text-sm"; tagAlerta = '<span class="px-1.5 py-0.5 bg-amber-500 text-white rounded text-[9px] font-black uppercase shrink-0">PROX.</span>'; }
+    }
+    let catValor = x.categoria || 'Normal'; let statusBadge = x.status === 'Pago' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300';
+    let acoesHtml = '';
+    if (contexto === 'unico') {
+        let idEsc = escapeHTML(String(x.id));
+        let btnPago = x.status === 'Em Aberto' ? `<button title="Marcar como Pago" onclick="pagar('${idEsc}')" class="text-green-600 hover:text-green-800 transition transform hover:scale-110">${ICON_PAGO}</button>` : '';
+        acoesHtml = `<td class="p-3 no-print col-acoes"><div class="flex items-center justify-center gap-2">${btnPago}<button title="Editar" onclick="editar('${idEsc}')" class="text-blue-600 hover:text-blue-800 transition transform hover:scale-110">${ICON_EDIT}</button><button title="Duplicar" onclick="duplicar('${idEsc}')" class="text-slate-500 hover:text-indigo-600 transition transform hover:scale-110">${ICON_CLONE}</button><button title="Excluir" onclick="excluir('${idEsc}')" class="text-red-600 hover:text-red-800 transition transform hover:scale-110">${ICON_DEL}</button></div></td>`;
+    }
+    return `<tr class="${classeEstiloLinha}"><td class="p-3 text-xs text-slate-400 col-id" title="${escapeHTML(String(x.id))}">${exibirIdAbreviado(x.id)}</td><td class="p-3 text-xs font-bold text-slate-700 col-nf">${x.notaFiscal ? escapeHTML(x.notaFiscal) : '-'}</td><td class="p-3 font-semibold col-desc">${escapeHTML(x.descricao)}</td><td class="p-3 col-cat">${construirBadgeCategoria(catValor)}</td><td class="p-3 text-xs col-parc">${escapeHTML(x.parcela || '1/1')}</td><td class="p-3 font-bold col-valor text-right">R$ ${Number(x.valor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td><td class="p-3 text-xs col-venc text-center">${formatarData(x.vencimento)}</td><td class="p-3 text-xs col-pag text-center">${formatarData(x.pagamento) || '-'}</td><td class="p-3 col-status"><div class="flex flex-wrap gap-1 items-center justify-center w-full"><span class="px-1 py-0.5 rounded-full text-[9px] font-bold uppercase shrink-0 border ${statusBadge}">${escapeHTML(x.status)}</span>${tagAlerta}</div></td>${acoesHtml}</tr>`;
+}
+
+function renderUnico() {
+    let rows = aplicarFiltros(data); document.getElementById('tbody').innerHTML = rows.map(x => gerarLinhaTabela(x, 'unico')).join('');
+    atualizarCardsTopo(rows); document.getElementById('sugs').innerHTML = [...new Set(data.map(x => x.descricao))].map(x => `<option value="${escapeHTML(x)}">`).join('');
+}
+
+async function renderGlobal() {
+    try {
+        const bancosLista = obterBancos();
+        const bancos = bancosLista.map(b => ({ id: b.id, nome: b.icone + ' ' + b.nome, cor: b.cor }));
+        const ocultarVazios = document.getElementById('toggleOcultarVazios')?.checked || false;
+        
+        const filtrosCache = obterValoresFiltros();
+        
+        let promessas = bancos.map(async b => { 
+            let dadosRaw = await obterRegistrosBanco(b.id); 
+            return { ...b, dados: aplicarFiltros(dadosRaw, filtrosCache) }; 
+        });
+        
+        let resultados = await Promise.all(promessas); 
+        let viewGlobal = document.getElementById('viewGlobal'); 
+        
+        let html = '';
+        let rowsAgrupadasGlobais = [];
+
+        resultados.forEach(banco => {
+            const estaVazio = banco.dados.length === 0;
+            if (ocultarVazios && estaVazio) return;
+
+            rowsAgrupadasGlobais = rowsAgrupadasGlobais.concat(banco.dados);
+            let total = banco.dados.reduce((a,b) => a + Number(b.valor), 0); 
+            let pago = banco.dados.filter(x => x.status === 'Pago').reduce((a,b) => a + Number(b.valor), 0);
+            
+            html += `
+            <div class="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden flex flex-col ${estaVazio ? 'banco-card-vazio' : ''}">
+                <div class="${banco.cor} text-white p-3 flex justify-between items-center"><h3 class="font-bold text-sm tracking-wide">${escapeHTML(banco.nome)}</h3><span class="bg-white/20 text-xs px-2 py-0.5 rounded-full font-bold">${banco.dados.length} itens</span></div>
+                <div class="p-3 bg-slate-50 border-b flex justify-between text-xs"><div class="text-slate-600 font-bold">T: <span class="text-slate-800">R$ ${total.toLocaleString('pt-BR')}</span></div><div class="text-green-600 font-bold">P: R$ ${pago.toLocaleString('pt-BR')}</div><div class="text-red-600 font-bold">A: R$ ${(total - pago).toLocaleString('pt-BR')}</div></div>
+                <div class="global-table-scroll flex-1 p-1">
+                    ${estaVazio ? '<p class="text-xs text-center text-slate-400 py-4">Nenhum registro encontrado no filtro atual.</p>' : `
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-200 text-slate-700">
+                            <tr>
+                                <th class="p-2 border-b text-[9px] font-black uppercase tracking-wider col-desc">DESCRIÇÃO</th>
+                                <th class="p-2 border-b text-[9px] font-black uppercase tracking-wider col-cat">CATEGORIA</th>
+                                <th class="p-2 border-b text-[9px] font-black uppercase tracking-wider col-parc">PARC</th>
+                                <th class="p-2 border-b text-[9px] font-black uppercase tracking-wider col-valor">VALOR</th>
+                                <th class="p-2 border-b text-[9px] font-black uppercase tracking-wider col-venc">VENCIMENTO</th>
+                                <th class="p-2 border-b text-[9px] font-black uppercase tracking-wider col-status">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-slate-600 font-semibold">
+                            ${banco.dados.map(x => gerarLinhaTabelaGlobal(x)).join('')}
+                        </tbody>
+                    </table>`}
+                </div>
+            </div>`;
+        });
+        
+        viewGlobal.innerHTML = html;
+        atualizarCardsTopo(rowsAgrupadasGlobais);
+    } catch (err) {
+        console.error("Erro ao renderizar visão comparativa:", err);
+        mostrarAlertaCustomizado("Erro Comparativo", "Falha ao processar dados dos bancos: " + (err.message || err), "bg-red-600");
+    }
+}
+
+function gerarLinhaTabelaGlobal(x) {
+    let classeEstiloLinha = "border-b hover:bg-slate-50 transition text-[11px]";
+    let tagAlerta = "";
+    if(x.status === 'Em Aberto') {
+        let vcto = obterDadosVencimento(x.vencimento);
+        if(vcto.vencido) { 
+            classeEstiloLinha = "border-b bg-red-50/70 hover:bg-red-100/80 text-red-900 text-[11px]"; 
+            tagAlerta = '<span class="px-1.5 py-0.5 bg-red-600 text-white rounded text-[9px] font-black uppercase shrink-0 ml-1">ATRASADO</span>'; 
+        } 
+        else if(vcto.alerta) { 
+            classeEstiloLinha = "border-b bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 text-[11px]"; 
+            tagAlerta = '<span class="px-1.5 py-0.5 bg-amber-500 text-white rounded text-[9px] font-black uppercase shrink-0 ml-1">PROX.</span>'; 
+        }
+    }
+    
+    let catValor = x.categoria || 'Normal';
+    let statusBadge = x.status === 'Pago' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300';
+    
+    return `
+        <tr class="${classeEstiloLinha}">
+            <td class="p-2 font-semibold col-desc">${escapeHTML(x.descricao)}</td>
+            <td class="p-2 col-cat">${construirBadgeCategoria(catValor)}</td>
+            <td class="p-2 text-xs col-parc">${escapeHTML(x.parcela || '1/1')}</td>
+            <td class="p-2 font-bold col-valor text-right">R$ ${Number(x.valor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+            <td class="p-2 text-xs col-venc text-center">${formatarData(x.vencimento)}</td>
+            <td class="p-2 col-status">
+                <div class="flex flex-wrap gap-1 items-center justify-center w-full">
+                    <span class="px-1 py-0.5 rounded-full text-[9px] font-bold uppercase shrink-0 border ${statusBadge}">${escapeHTML(x.status)}</span>
+                    ${tagAlerta}
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
+function atualizarCardsTopo(rows) {
+    let total = rows.reduce((a,b) => a + Number(b.valor), 0); let pago = rows.filter(x => x.status === 'Pago').reduce((a,b) => a + Number(b.valor), 0); let aberto = total - pago;
+    document.getElementById('cTotal').textContent = 'R$ ' + total.toLocaleString('pt-BR', {minimumFractionDigits:2}); document.getElementById('cPago').textContent = 'R$ ' + pago.toLocaleString('pt-BR', {minimumFractionDigits:2});
+    document.getElementById('cAberto').textContent = 'R$ ' + aberto.toLocaleString('pt-BR', {minimumFractionDigits:2}); document.getElementById('cQtd').textContent = rows.length;
+}
+
+function formatarData(dataStr) { if(!dataStr) return ""; const [y, m, d] = dataStr.split('-'); return `${d}/${m}/${y}`; }
+function adicionarMeses(dataBase, meses) { let d = new Date(dataBase + 'T12:00:00'); let diaOriginal = d.getDate(); d.setMonth(d.getMonth() + meses); if (d.getDate() !== diaOriginal) d.setDate(0); return formatarDataISO(d); }
+
+document.getElementById('form').onsubmit = async e => {
+    e.preventDefault();
+    let idVal = document.getElementById('id').value; let descBase = document.getElementById('descricao').value; let nfVal = document.getElementById('notaFiscal').value.trim();
+    let catVal = document.getElementById('categoriaLanc').value; let valorTotal = +document.getElementById('valor').value; let qtdParcelas = Math.max(1, +document.getElementById('parcelas').value || 1); let vctoBase = document.getElementById('vencimento').value;
+
+    try {
+        if(idVal) {
+            let statusVal = document.getElementById('status').value; let pagamVal = document.getElementById('pagamento').value; let rOrig = data.find(x => String(x.id) === String(idVal));
+            let dataPag = (statusVal === 'Pago') ? (pagamVal || formatarDataISO()) : "";
+            let idFinal = (typeof rOrig.id === 'number') ? +idVal : idVal;
+            await atualizarRegistro({ id: idFinal, descricao: descBase, notaFiscal: nfVal, categoria: catVal, valor: valorTotal, vencimento: vctoBase, pagamento: dataPag, status: statusVal, parcela: rOrig.parcela, grupoId: rOrig.grupoId || null });
+        } else {
+            let valorBase = Math.floor((valorTotal / qtdParcelas) * 100) / 100; let restoCents = Math.round((valorTotal - (valorBase * qtdParcelas)) * 100); let grupoId = qtdParcelas > 1 ? gerarUUID() : null;
+            for(let i = 0; i < qtdParcelas; i++){
+                let novoVenc = adicionarMeses(vctoBase, i); let valParc = valorBase + (i < restoCents ? 0.01 : 0);
+                await salvarRegistro({ descricao: descBase, notaFiscal: nfVal, categoria: catVal, valor: Math.round(valParc * 100) / 100, vencimento: novoVenc, pagamento: "", status: "Em Aberto", parcela: `${i+1}/${qtdParcelas}`, grupoId: grupoId });
+            }
+        }
+        fecharModal(); carregar();
+    } catch (err) {
+        mostrarAlertaCustomizado("Erro", "Falha ao gravar no banco de dados: " + (err.message || err), "bg-red-600");
+    }
+};
+
+async function pagar(idr){
+    try {
+        let r = data.find(x => String(x.id) === String(idr));
+        if(!r) return;
+        r.status = 'Pago';
+        r.pagamento = formatarDataISO();
+        await atualizarRegistro(r);
+        carregar();
+    } catch (err) {
+        mostrarAlertaCustomizado("Erro", "Falha ao registrar pagamento: " + (err.message || err), "bg-red-600");
+    }
+}
+
+function editar(idr){
+    let r = data.find(x => String(x.id) === String(idr)); document.getElementById('modalTitle').textContent = "Editar Lançamento"; document.getElementById('id').value = r.id; document.getElementById('descricao').value = r.descricao;
+    document.getElementById('notaFiscal').value = r.notaFiscal || ''; document.getElementById('categoriaLanc').value = r.categoria || 'Normal'; document.getElementById('valor').value = r.valor;
+    document.getElementById('vencimento').value = r.vencimento; document.getElementById('status').value = r.status; document.getElementById('pagamento').value = r.pagamento || '';
+    document.getElementById('containerParcelas').style.display = 'none'; document.getElementById('containerStatus').classList.remove('hidden'); document.getElementById('containerPagamento').classList.remove('hidden'); document.getElementById('previewContainer').classList.add('hidden'); document.getElementById('modal').classList.remove('hidden'); gerenciarInputPagamentoAutomatico();
+}
+
+function duplicar(idr){
+    let r = data.find(x => String(x.id) === String(idr)); document.getElementById('modalTitle').textContent = "Duplicar Lançamento"; document.getElementById('id').value = ''; document.getElementById('descricao').value = r.descricao + ' (Cópia)';
+    document.getElementById('notaFiscal').value = r.notaFiscal || ''; document.getElementById('categoriaLanc').value = r.categoria || 'Normal'; document.getElementById('valor').value = r.valor;
+    document.getElementById('vencimento').value = r.vencimento; document.getElementById('status').value = 'Em Aberto'; document.getElementById('pagamento').value = ''; document.getElementById('containerParcelas').style.display = 'block'; document.getElementById('parcelas').value = 1;
+    document.getElementById('containerStatus').classList.add('hidden'); document.getElementById('containerPagamento').classList.add('hidden'); document.getElementById('previewContainer').classList.add('hidden'); document.getElementById('modal').classList.remove('hidden');
+}
+
+async function excluir(idr){
+    let r = data.find(x => String(x.id) === String(idr)); if(!r) return;
+    try {
+        if(r.grupoId) {
+            let parcGrupo = data.filter(x => x.grupoId === r.grupoId);
+            if(parcGrupo.length > 1) {
+                let confGrupo = await mostrarConfirmacaoCustomizada('⚠️ Parcelamento', `Excluir TODAS as ${parcGrupo.length} parcelas de "${r.descricao}"?`, 'Sim, Excluir Tudo', 'bg-amber-600');
+                if(confGrupo) {
+                    for(let item of parcGrupo) await excluirRegistro(item.id);
+                    carregar();
+                }
+                return;
+            }
+        }
+        let confIndiv = await mostrarConfirmacaoCustomizada('🗑️ Confirmar', `Excluir "${r.descricao}" de R$ ${Number(r.valor).toLocaleString('pt-BR')}?`, 'Sim, Excluir', 'bg-red-600');
+        if(confIndiv) {
+            await excluirRegistro(idr);
+            carregar();
+        }
+    } catch (err) {
+        mostrarAlertaCustomizado("Erro", "Falha ao excluir registro: " + (err.message || err), "bg-red-600");
+    }
+}
+
+function atalho(tipo){
+    let hj = new Date(); let ini = new Date();
+    if(tipo === 'hoje') { document.getElementById('fIni').value = formatarDataISO(hj); document.getElementById('fFim').value = formatarDataISO(hj); } 
+    else if(typeof tipo === 'number') { ini.setDate(hj.getDate() - tipo); document.getElementById('fIni').value = formatarDataISO(ini); document.getElementById('fFim').value = formatarDataISO(hj); } 
+    else if(tipo === 'mes_atual') { document.getElementById('fIni').value = formatarDataISO(new Date(hj.getFullYear(), hj.getMonth(), 1)); document.getElementById('fFim').value = formatarDataISO(new Date(hj.getFullYear(), hj.getMonth() + 1, 0)); } 
+    else if(tipo === 'mes_ant') { document.getElementById('fIni').value = formatarDataISO(new Date(hj.getFullYear(), hj.getMonth() - 1, 1)); document.getElementById('fFim').value = formatarDataISO(new Date(hj.getFullYear(), hj.getMonth(), 0)); } 
+    else if(tipo === 'ano_atual') { document.getElementById('fIni').value = formatarDataISO(new Date(hj.getFullYear(), 0, 1)); document.getElementById('fFim').value = formatarDataISO(new Date(hj.getFullYear(), 11, 31)); } 
+    else if(tipo === 'proximos_30') { let fim = new Date(); fim.setDate(hj.getDate() + 30); document.getElementById('fIni').value = formatarDataISO(hj); document.getElementById('fFim').value = formatarDataISO(fim); }
+    render();
+}
+
+function limparFiltros() { ['fBusca', 'fCategoria', 'fStatus', 'fIni', 'fFim'].forEach(id => document.getElementById(id).value = ''); render(); }
+
+async function showResumoProfessional(){
+    try {
+        let itens = [];
+        let qtBancos = 0;
+        if (MODO_GLOBAL) {
+            const bancos = obterBancos();
+            qtBancos = bancos.length;
+            const filtrosCache = obterValoresFiltros();
+            for (let b of bancos) {
+                let dadosRaw = await obterRegistrosBanco(b.id);
+                itens = itens.concat(aplicarFiltros(dadosRaw, filtrosCache));
+            }
+        } else {
+            itens = aplicarFiltros(data);
+        }
+
+        let mapa = {}; let tPago = 0; let tAberto = 0;
+        itens.forEach(x => { let v = Number(x.valor); mapa[x.descricao] = (mapa[x.descricao] || 0) + v; if(x.status === 'Pago') tPago += v; else tAberto += v; });
+
+        let top = Object.entries(mapa).sort((a,b) => b[1] - a[1]);
+        let html = `
+            ${MODO_GLOBAL ? `<div class="bg-indigo-100 text-indigo-800 text-xs font-bold p-2 mb-4 rounded text-center uppercase tracking-wide border border-indigo-200">🌐 Consolidado Geral (${qtBancos} Bancos)</div>` : ''}
+            <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border">
+                <div><span class="text-xs font-bold text-slate-400 uppercase">Boletos Quitados</span><span class="text-xl font-black text-green-600 block">R$ ${tPago.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span></div>
+                <div><span class="text-xs font-bold text-slate-400 uppercase">Previsão Necessária</span><span class="text-xl font-black text-red-600 block">R$ ${tAberto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span></div>
+            </div>
+            <div class="mt-4"><h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Maiores Despesas Filtradas</h3>
+                <div class="space-y-1.5 max-h-[250px] overflow-auto pr-1">
+                    ${top.map(([k,v]) => {
+                        let p = ((v / (tPago + tAberto)) * 100) || 0;
+                        return `<div class="p-2.5 bg-white border rounded-lg shadow-sm flex flex-col gap-1"><div class="flex justify-between text-sm font-bold text-slate-700"><span class="uppercase">${escapeHTML(k)}</span><span class="text-blue-600">R$ ${v.toLocaleString('pt-BR')}</span></div><div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div class="bg-blue-600 h-2" style="width: ${p}%"></div></div><span class="text-[10px] text-slate-400 font-medium">${p.toFixed(1)}%</span></div>`;
+                    }).join('') || '<p class="text-sm text-slate-400 text-center py-2">Sem movimentações para exibir.</p>'}
+                </div>
+            </div>`;
+        document.getElementById('resumoConteudo').innerHTML = html; document.getElementById('resumoModal').classList.remove('hidden');
+    } catch (err) {
+        console.error("Erro ao exibir resumo:", err);
+        mostrarAlertaCustomizado("Erro Resumo", "Falha ao gerar resumo estatístico: " + (err.message || err), "bg-red-600");
+    }
+}
+
+function sanitizarTexto(texto) {
+    if (!texto) return '';
+    return texto.replace(/[\r\n]+/g, ' ').replace(/"/g, '""').trim();
+}
+
+async function exportarCSV() {
+    if (MODO_GLOBAL || ABA_ATIVA === ABAS.COMPARATIVO) {
+        return exportarCSVComparativo();
+    }
+    
+    let itens = aplicarFiltros(data);
+    
+    if(itens.length === 0) return mostrarAlertaCustomizado("Aviso", "Não há dados na tela atual para exportar.", "bg-amber-500");
+    
+    let bancosSys = obterBancos();
+    let bAtivo = bancosSys.find(x => x.id === ABA_ATIVA);
+    let origemBanco = bAtivo ? bAtivo.nome : ABA_ATIVA;
+    
+    let csv = '\uFEFF';
+    csv += 'ID;NF;Descricao;Categoria;Parcela;Valor;Vencimento;Pagamento;Status;Origem Banco\n';
+    
+    itens.forEach(x => {
+        let desc = sanitizarTexto(x.descricao);
+        let nf = sanitizarTexto(x.notaFiscal);
+        let valor = Number(x.valor).toLocaleString('pt-BR', {minimumFractionDigits: 2}).replace(/\./g, '');
+        let linha = `${x.id};"${nf}";"${desc}";"${x.categoria || 'Normal'}";"${x.parcela || '1/1'}";"${valor}";"${formatarData(x.vencimento)}";"${formatarData(x.pagamento) || ''}";"${x.status}";"${origemBanco}"`;
+        csv += linha + '\n';
+    });
+    
+    let sufixo = origemBanco;
+    const nomePadraoArquivo = `Planilha_${sufixo}_${formatarDataISO()}.csv`;
+    
+    await salvarArquivoCSV(csv, nomePadraoArquivo);
+}
+
+async function exportarCSVComparativo() {
+    try {
+        const bancos = obterBancos();
+        const filtrosCache = obterValoresFiltros();
+        let todosItens = [];
+        
+        for (let b of bancos) {
+            let dadosRaw = await obterRegistrosBanco(b.id);
+            let filtrados = aplicarFiltros(dadosRaw, filtrosCache);
+            
+            filtrados.forEach(item => {
+                todosItens.push({ ...item, origemBanco: b.nome });
+            });
+        }
+        
+        if (todosItens.length === 0) return mostrarAlertaCustomizado("Aviso", "Não há dados para o comparativo.", "bg-amber-500");
+        
+        todosItens.sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || ''));
+        
+        let csv = '\uFEFF';
+        csv += 'ID;NF;Descricao;Categoria;Parcela;Valor;Vencimento;Pagamento;Status;Origem Banco\n';
+        
+        todosItens.forEach(x => {
+            let desc = sanitizarTexto(x.descricao);
+            let nf = sanitizarTexto(x.notaFiscal);
+            let valor = Number(x.valor).toLocaleString('pt-BR', {minimumFractionDigits: 2}).replace(/\./g, '');
+            let linha = `${x.id};"${nf}";"${desc}";"${x.categoria || 'Normal'}";"${x.parcela || '1/1'}";"${valor}";"${formatarData(x.vencimento)}";"${formatarData(x.pagamento) || ''}";"${x.status}";"${x.origemBanco}"`;
+            csv += linha + '\n';
+        });
+        
+        const nomePadraoArquivo = `Comparativo_Consolidado_${formatarDataISO()}.csv`;
+        await salvarArquivoCSV(csv, nomePadraoArquivo);
+    } catch (err) {
+        console.error("Erro ao exportar CSV comparativo:", err);
+        mostrarAlertaCustomizado("Erro CSV", "Falha ao exportar CSV comparativo: " + (err.message || err), "bg-red-600");
+    }
+}
+
+async function salvarArquivoCSV(csv, nomePadraoArquivo) {
+    if (window.__TAURI__?.core?.invoke) {
+        try {
+            const caminho = await window.__TAURI__.core.invoke('plugin:dialog|save', { options: { defaultPath: nomePadraoArquivo, filters: [{ name: 'CSV', extensions: ['csv'] }] } });
+            if (caminho) { await window.__TAURI__.core.invoke('plugin:fs|write_text_file', { path: caminho, contents: csv }); return mostrarAlertaCustomizado("Sucesso", "Planilha salva pelo App Desktop!", "bg-green-600"); }
+            return;
+        } catch (erro) { console.warn("Tauri Nativo falhou na Planilha"); }
+    }
+    
+    if (window.showSaveFilePicker) {
+        try {
+            const handle = await window.showSaveFilePicker({ suggestedName: nomePadraoArquivo, types: [{ description: 'Arquivo CSV', accept: {'text/csv': ['.csv']} }] });
+            const writable = await handle.createWritable(); await writable.write(csv); await writable.close(); return mostrarAlertaCustomizado("Sucesso", "Planilha salva com sucesso!", "bg-green-600");
+        } catch (err) { if (err.name === 'AbortError') return; }
+    }
+
+    mostrarAlertaCustomizado("Aviso", "Salvando a planilha pelo navegador...", "bg-amber-600");
+    setTimeout(() => {
+        let blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); 
+        let url = URL.createObjectURL(blob); 
+        let a = document.createElement("a");
+        a.href = url; 
+        a.download = nomePadraoArquivo; 
+        document.body.appendChild(a); 
+        a.click(); 
+        document.body.removeChild(a); 
+        URL.revokeObjectURL(url);
+    }, 1000);
+}
+
+async function exportarBackupGeral() {
+    try {
+        const bancosSys = obterBancos();
+        if (bancosSys.length === 0) return mostrarAlertaCustomizado("Aviso", "Não há bancos cadastrados.", "bg-amber-500");
+        let bancosExport = [];
+        let totalRegistros = 0;
+        for (let b of bancosSys) {
+            let registros = await obterRegistrosBanco(b.id);
+            totalRegistros += registros.length;
+            bancosExport.push({ id: b.id, nome: b.nome, icone: b.icone, cor: b.cor, registros: registros });
+        }
+        if (totalRegistros === 0) return mostrarAlertaCustomizado("Aviso", "Não há registros em nenhum banco para exportar.", "bg-amber-500");
+        const backupObj = { versao: '1.3.0', tipo: 'backup_geral', dataExportacao: new Date().toISOString(), bancos: bancosExport };
+        const jsonConteudo = JSON.stringify(backupObj, null, 2);
+        const nomePadraoArquivo = `Backup_Geral_${formatarDataISO()}.json`;
+        if (window.__TAURI__?.core?.invoke) {
+            try {
+                const caminho = await window.__TAURI__.core.invoke('plugin:dialog|save', { options: { defaultPath: nomePadraoArquivo, filters: [{ name: 'JSON', extensions: ['json'] }] } });
+                if (caminho) { await window.__TAURI__.core.invoke('plugin:fs|write_text_file', { path: caminho, contents: jsonConteudo }); return mostrarAlertaCustomizado("Sucesso", `Backup geral salvo com sucesso! (${totalRegistros} registros em ${bancosExport.length} bancos)`, "bg-green-600"); }
+                return;
+            } catch (erro) { console.warn("Tauri Nativo falhou para backup"); }
+        }
+        if (window.showSaveFilePicker) {
+            try {
+                const handle = await window.showSaveFilePicker({ suggestedName: nomePadraoArquivo, types: [{ description: 'Arquivo JSON', accept: {'application/json': ['.json']} }] });
+                const writable = await handle.createWritable(); await writable.write(jsonConteudo); await writable.close(); return mostrarAlertaCustomizado("Sucesso", `Backup geral salvo! (${totalRegistros} registros em ${bancosExport.length} bancos)`, "bg-green-600");
+            } catch (err) { if (err.name === 'AbortError') return; }
+        }
+        mostrarAlertaCustomizado("Aviso", "O download do backup será iniciado no navegador.", "bg-amber-600");
+        setTimeout(() => {
+            const blob = new Blob([jsonConteudo], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a");
+            a.href = url; a.download = nomePadraoArquivo; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+        }, 1000);
+    } catch (err) {
+        mostrarAlertaCustomizado("Erro", "Falha ao gerar backup geral: " + (err.message || err), "bg-red-600");
+    }
+}
+
+let _jsonImportPendente = null;
+
+function abrirModalImportacao() {
+    document.getElementById('importModeModal').classList.remove('hidden');
+}
+function fecharModalImportacao() {
+    document.getElementById('importModeModal').classList.add('hidden');
+    _jsonImportPendente = null;
+}
+
+async function importarBackupTauri() {
+    if (window.__TAURI__?.core?.invoke) {
+        try {
+            const arq = await window.__TAURI__.core.invoke('plugin:dialog|open', { options: { multiple: false, filters: [{ name: 'JSON', extensions: ['json'] }] } });
+            if (arq) { const cont = await window.__TAURI__.core.invoke('plugin:fs|read_text_file', { path: arq }); _jsonImportPendente = cont; abrirModalImportacao(); }
+        } catch (e) { document.getElementById('fileImport').click(); }
+    } else document.getElementById('fileImport').click();
+}
+
+function importarBackup(e) {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => { _jsonImportPendente = ev.target.result; abrirModalImportacao(); };
+    reader.readAsText(file); e.target.value = '';
+}
+
+async function executarImportacao(modo) {
+    fecharModalImportacao();
+    if (!_jsonImportPendente) return mostrarAlertaCustomizado("Erro", "Nenhum arquivo para processar.", "bg-red-600");
+    try {
+        const dadosParsed = JSON.parse(_jsonImportPendente);
+        _jsonImportPendente = null;
+        const ehBackupGeral = (dadosParsed && dadosParsed.tipo === 'backup_geral' && Array.isArray(dadosParsed.bancos));
+        if (modo === 'substituir') {
+            if (ehBackupGeral) {
+                await importarGeralSubstituir(dadosParsed);
+            } else if (Array.isArray(dadosParsed)) {
+                await importarIndividualSubstituir(dadosParsed);
+            } else { throw new Error('Formato de backup não reconhecido.'); }
+        } else {
+            if (ehBackupGeral) {
+                await importarGeralMesclar(dadosParsed);
+            } else if (Array.isArray(dadosParsed)) {
+                await importarIndividualMesclar(dadosParsed);
+            } else { throw new Error('Formato de backup não reconhecido.'); }
+        }
+    } catch (err) {
+        mostrarAlertaCustomizado("Erro", "Erro ao processar importação: " + (err.message || err), "bg-red-600");
+    }
+}
+
+async function importarIndividualSubstituir(itens) {
+    let conf = await mostrarConfirmacaoCustomizada('🗑️ Substituir Tudo', `Apagar todos os dados da aba atual e restaurar ${itens.length} registros do backup?`, 'Sim, Substituir', 'bg-red-600');
+    if (!conf) return;
+    const tx = db.transaction('lanc', 'readwrite'); const os = tx.objectStore('lanc'); os.clear();
+    for (let item of itens) os.put(item);
+    tx.oncomplete = () => { mostrarAlertaCustomizado("Sucesso", `${itens.length} registros restaurados na aba atual!`, "bg-green-600"); carregar(); };
+    tx.onerror = () => mostrarAlertaCustomizado("Erro", "Falha interna local.", "bg-red-600");
+}
+
+async function importarGeralSubstituir(backupObj) {
+    let totalRegs = backupObj.bancos.reduce((a, b) => a + b.registros.length, 0);
+    let conf = await mostrarConfirmacaoCustomizada('🗑️ Substituir Tudo (Geral)', `Restaurar ${totalRegs} registros em ${backupObj.bancos.length} bancos? Os dados atuais de cada banco serão APAGADOS e substituídos.`, 'Sim, Substituir Tudo', 'bg-red-600');
+    if (!conf) return;
+    let bancosAtuais = obterBancos();
+    for (let bancoBackup of backupObj.bancos) {
+        let existe = bancosAtuais.find(b => b.id === bancoBackup.id);
+        if (!existe) {
+            bancosAtuais.push({ id: bancoBackup.id, nome: bancoBackup.nome, icone: bancoBackup.icone, cor: bancoBackup.cor });
+        }
+        let dbTemp = null;
+        try {
+            dbTemp = await openDB(bancoBackup.id);
+            await new Promise((resolve, reject) => {
+                const tx = dbTemp.transaction('lanc', 'readwrite'); const os = tx.objectStore('lanc'); os.clear();
+                for (let item of bancoBackup.registros) os.put(item);
+                tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+            });
+        } finally { if (dbTemp && dbTemp !== db) try { dbTemp.close(); } catch(_) {} }
+    }
+    salvarBancosLocal(bancosAtuais);
+    renderizarBotoesBancos();
+    if (db) db.close();
+    await openDB();
+    await carregar();
+    mostrarAlertaCustomizado("Sucesso", `Backup geral restaurado! (${totalRegs} registros em ${backupObj.bancos.length} bancos)`, "bg-green-600");
+}
+
+function gerarChaveDuplicata(item) {
+    return `${(item.descricao||'').toLowerCase().trim()}|${Number(item.valor)}|${item.vencimento||''}|${item.parcela||'1/1'}`;
+}
+
+async function importarIndividualMesclar(itens) {
+    let conf = await mostrarConfirmacaoCustomizada('🔄 Mesclar / Acrescentar', `Mesclar ${itens.length} registros do backup com os dados da aba atual? Registros existentes serão mantidos.`, 'Sim, Mesclar', 'bg-sky-600');
+    if (!conf) return;
+    let existentes = await listarRegistros(db);
+    let idsExistentes = new Set(existentes.map(x => String(x.id)));
+    let chavesExistentes = new Set(existentes.map(x => gerarChaveDuplicata(x)));
+    let inseridos = 0; let pulados = 0; let atualizados = 0;
+    for (let item of itens) {
+        let idStr = String(item.id);
+        if (typeof item.id === 'string' && item.id.includes('-')) {
+            if (idsExistentes.has(idStr)) {
+                let existente = existentes.find(x => String(x.id) === idStr);
+                if (existente && existente.status === 'Em Aberto' && item.status === 'Pago') {
+                    existente.status = 'Pago'; existente.pagamento = item.pagamento || formatarDataISO();
+                    await atualizarRegistro(existente); atualizados++;
+                } else { pulados++; }
+            } else {
+                await new Promise((res, rej) => { let t = store('readwrite').put(item); t.onsuccess = () => res(); t.onerror = () => rej(t.error); });
+                inseridos++;
+            }
+        } else {
+            let chave = gerarChaveDuplicata(item);
+            if (chavesExistentes.has(chave)) {
+                let existente = existentes.find(x => gerarChaveDuplicata(x) === chave);
+                if (existente && existente.status === 'Em Aberto' && item.status === 'Pago') {
+                    existente.status = 'Pago'; existente.pagamento = item.pagamento || formatarDataISO();
+                    await atualizarRegistro(existente); atualizados++;
+                } else { pulados++; }
+            } else {
+                let novoItem = { ...item, id: gerarUUID() };
+                await new Promise((res, rej) => { let t = store('readwrite').put(novoItem); t.onsuccess = () => res(); t.onerror = () => rej(t.error); });
+                inseridos++; chavesExistentes.add(chave);
+            }
+        }
+    }
+    await carregar();
+    mostrarAlertaCustomizado("Sucesso", `Mesclagem concluída! ${inseridos} novos, ${atualizados} atualizados, ${pulados} já existiam.`, "bg-green-600");
+}
+
+async function importarGeralMesclar(backupObj) {
+    let totalRegs = backupObj.bancos.reduce((a, b) => a + b.registros.length, 0);
+    let conf = await mostrarConfirmacaoCustomizada('🔄 Mesclar Geral', `Mesclar ${totalRegs} registros de ${backupObj.bancos.length} bancos? Seus dados atuais serão mantidos e os novos serão acrescentados.`, 'Sim, Mesclar Tudo', 'bg-sky-600');
+    if (!conf) return;
+    let bancosAtuais = obterBancos();
+    let totalInseridos = 0; let totalPulados = 0; let totalAtualizados = 0;
+    for (let bancoBackup of backupObj.bancos) {
+        let existe = bancosAtuais.find(b => b.id === bancoBackup.id);
+        if (!existe) {
+            bancosAtuais.push({ id: bancoBackup.id, nome: bancoBackup.nome, icone: bancoBackup.icone, cor: bancoBackup.cor });
+            let qCreate = indexedDB.open(bancoBackup.id, 1);
+            await new Promise((res) => { qCreate.onupgradeneeded = ev => ev.target.result.createObjectStore('lanc',{keyPath:'id',autoIncrement:true}); qCreate.onsuccess = () => { qCreate.result.close(); res(); }; qCreate.onerror = () => res(); });
+        }
+        let dbTemp = null;
+        try {
+            dbTemp = await openDB(bancoBackup.id);
+            let existentes = await listarRegistros(dbTemp);
+            let idsExistentes = new Set(existentes.map(x => String(x.id)));
+            let chavesExistentes = new Set(existentes.map(x => gerarChaveDuplicata(x)));
+            for (let item of bancoBackup.registros) {
+                let idStr = String(item.id);
+                if (typeof item.id === 'string' && item.id.includes('-')) {
+                    if (idsExistentes.has(idStr)) {
+                        let ex = existentes.find(x => String(x.id) === idStr);
+                        if (ex && ex.status === 'Em Aberto' && item.status === 'Pago') {
+                            ex.status = 'Pago'; ex.pagamento = item.pagamento || formatarDataISO();
+                            await new Promise((res, rej) => { let t = dbTemp.transaction('lanc','readwrite').objectStore('lanc').put(ex); t.onsuccess = () => res(); t.onerror = () => rej(t.error); });
+                            totalAtualizados++;
+                        } else { totalPulados++; }
+                    } else {
+                        await new Promise((res, rej) => { let t = dbTemp.transaction('lanc','readwrite').objectStore('lanc').put(item); t.onsuccess = () => res(); t.onerror = () => rej(t.error); });
+                        totalInseridos++;
+                    }
+                } else {
+                    let chave = gerarChaveDuplicata(item);
+                    if (chavesExistentes.has(chave)) {
+                        let ex = existentes.find(x => gerarChaveDuplicata(x) === chave);
+                        if (ex && ex.status === 'Em Aberto' && item.status === 'Pago') {
+                            ex.status = 'Pago'; ex.pagamento = item.pagamento || formatarDataISO();
+                            await new Promise((res, rej) => { let t = dbTemp.transaction('lanc','readwrite').objectStore('lanc').put(ex); t.onsuccess = () => res(); t.onerror = () => rej(t.error); });
+                            totalAtualizados++;
+                        } else { totalPulados++; }
+                    } else {
+                        let novoItem = { ...item, id: gerarUUID() };
+                        await new Promise((res, rej) => { let t = dbTemp.transaction('lanc','readwrite').objectStore('lanc').put(novoItem); t.onsuccess = () => res(); t.onerror = () => rej(t.error); });
+                        totalInseridos++; chavesExistentes.add(chave);
+                    }
+                }
+            }
+        } finally { if (dbTemp && dbTemp !== db) try { dbTemp.close(); } catch(_) {} }
+    }
+    salvarBancosLocal(bancosAtuais);
+    renderizarBotoesBancos();
+    if (db) db.close();
+    await openDB();
+    await carregar();
+    mostrarAlertaCustomizado("Sucesso", `Mesclagem geral concluída! ${totalInseridos} novos, ${totalAtualizados} atualizados, ${totalPulados} já existiam.`, "bg-green-600");
+}
+
+function atualizarPreviewParcelas() {
+    let valorTotal = +document.getElementById('valor').value; let qtdParcelas = Math.max(1, +document.getElementById('parcelas').value || 1); let idVal = document.getElementById('id').value;
+    if (!idVal && valorTotal > 0 && qtdParcelas > 1) {
+        let valorBase = Math.floor((valorTotal / qtdParcelas) * 100) / 100; let resto = Math.round((valorTotal - (valorBase * qtdParcelas)) * 100);
+        let texto = resto === 0 ? `${qtdParcelas}x de R$ ${valorBase.toLocaleString('pt-BR',{minimumFractionDigits:2})}` : `${resto}x de R$ ${(valorBase + 0.01).toLocaleString('pt-BR',{minimumFractionDigits:2})} e ${qtdParcelas - resto}x de R$ ${valorBase.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+        document.getElementById('previewParcelas').innerHTML = `📊 <span class="underline">Projeção</span>:<br><strong>${texto}</strong>`; document.getElementById('previewContainer').classList.remove('hidden');
+    } else document.getElementById('previewContainer').classList.add('hidden');
+}
+
+async function gerarRelatorioImpressao() {
+    let bancosLista = obterBancos();
+    
+    // Se não for modo comparativo, processar apenas o banco ativo
+    if (!MODO_GLOBAL) {
+        bancosLista = bancosLista.filter(b => b.id === ABA_ATIVA);
+    }
+
+    const filtrosCache = obterValoresFiltros();
+    const ocultarVazios = document.getElementById('toggleOcultarVazios')?.checked || false;
+    const agora = new Date();
+    const dataHora = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    // Mapeamento de cores Tailwind para hex (para uso inline no relatório)
+    const coresMapa = {
+        'bg-blue-600': '#2563eb', 'bg-indigo-600': '#4f46e5', 'bg-sky-600': '#0284c7',
+        'bg-emerald-600': '#059669', 'bg-amber-600': '#d97706', 'bg-red-600': '#dc2626',
+        'bg-purple-600': '#9333ea', 'bg-slate-600': '#475569'
+    };
+
+    let htmlSecoes = '';
+    let totalGeral = 0, pagoGeral = 0;
+
+    for (let b of bancosLista) {
+        let dadosRaw = await obterRegistrosBanco(b.id);
+        let dados = aplicarFiltros(dadosRaw, filtrosCache);
+
+        if (MODO_GLOBAL && ocultarVazios && dados.length === 0) continue;
+
+        let total = dados.reduce((a, x) => a + Number(x.valor), 0);
+        let pago = dados.filter(x => x.status === 'Pago').reduce((a, x) => a + Number(x.valor), 0);
+        let aberto = total - pago;
+        totalGeral += total;
+        pagoGeral += pago;
+
+        const corHex = coresMapa[b.cor] || '#475569';
+
+        let linhas = '';
+        if (dados.length === 0) {
+            linhas = `<tr><td colspan="6" style="text-align:center; color:#999; font-style:italic; padding:6px;">Nenhum registro encontrado no filtro atual.</td></tr>`;
+        } else {
+            dados.forEach(x => {
+                let vcto = obterDadosVencimento(x.vencimento);
+                let classeLinhaVcto = '';
+                let tagVcto = '';
+                if (x.status === 'Em Aberto') {
+                    if (vcto.vencido) { classeLinhaVcto = 'rel-linha-vencida'; tagVcto = '<span class="rel-tag-atrasado">ATRASADO</span>'; }
+                    else if (vcto.alerta) { classeLinhaVcto = 'rel-linha-alerta'; tagVcto = '<span class="rel-tag-prox">PROX.</span>'; }
+                }
+                let catBadge = (x.categoria || 'Normal') === 'Especial'
+                    ? '<span class="rel-cat-esp">ESPECIAL</span>'
+                    : '<span class="rel-cat-nor">NORMAL</span>';
+                let statusBadge = x.status === 'Pago'
+                    ? '<span class="rel-tag-pago">PAGO</span>'
+                    : `<span class="rel-tag-aberto">EM ABERTO</span>${tagVcto}`;
+                linhas += `<tr class="${classeLinhaVcto}">
+                    <td class="rel-desc">${escapeHTML(x.descricao)}</td>
+                    <td class="rel-center">${catBadge}</td>
+                    <td class="rel-center">${escapeHTML(x.parcela || '1/1')}</td>
+                    <td class="rel-valor">R$ ${Number(x.valor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td class="rel-center">${formatarData(x.vencimento)}</td>
+                    <td class="rel-center">${statusBadge}</td>
+                </tr>`;
+            });
+        }
+
+        htmlSecoes += `
+        <div class="rel-banco">
+            <div class="rel-banco-header" style="background-color:${corHex};">
+                <span>${escapeHTML(b.icone)} ${escapeHTML(b.nome)}</span>
+                <span>${dados.length} registro(s)</span>
+            </div>
+            <div class="rel-banco-resumo">
+                <span>Total: <strong>R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong></span>
+                <span style="color:#15803d;">Pago: <strong>R$ ${pago.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong></span>
+                <span style="color:#b91c1c;">Em Aberto: <strong>R$ ${aberto.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong></span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:35%;">DESCRIÇÃO</th>
+                        <th style="width:10%;">CATEGORIA</th>
+                        <th style="width:7%;">PARC</th>
+                        <th style="width:14%;">VALOR</th>
+                        <th style="width:12%;">VENCIMENTO</th>
+                        <th style="width:22%;">STATUS</th>
+                    </tr>
+                </thead>
+                <tbody>${linhas}</tbody>
+            </table>
+        </div>`;
+    }
+
+    const abertoGeral = totalGeral - pagoGeral;
+    const filtrosAtivos = filtrosCache.dIni || filtrosCache.dFim || filtrosCache.termo || filtrosCache.filtroStatus || filtrosCache.filtroCat;
+    const descFiltro = filtrosAtivos ? `<span style="color:#d97706;">&#9888; Filtros ativos</span>` : 'Sem filtros';
+
+    const tituloRelatorio = MODO_GLOBAL ? "Relatório Comparativo" : `Relatório - ${bancosLista[0]?.nome || 'Banco'}`;
+
+    return `
+    <div class="rel-titulo">Controle de Pagamentos PRO &mdash; ${tituloRelatorio}</div>
+    <div class="rel-subtitulo">Gerado em: ${dataHora} &nbsp;|&nbsp; ${descFiltro} &nbsp;|&nbsp; Total Consolidado: <strong>R$ ${totalGeral.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong> &nbsp;|&nbsp; Em Aberto: <strong>R$ ${abertoGeral.toLocaleString('pt-BR', {minimumFractionDigits:2})}</strong></div>
+    ${htmlSecoes}
+    <div class="rel-rodape">Controle de Pagamentos PRO &mdash; Impresso em ${dataHora}</div>
+    `;
+}
+
+async function imprimir() {
+    try {
+        // Unificação de impressão: O relatório dedicado (Opção 2) atende a todos os bancos.
+        const relDiv = document.getElementById('relatorio-impressao');
+        relDiv.innerHTML = await gerarRelatorioImpressao();
+        
+        document.body.classList.add('modo-relatorio-impressao');
+
+        setTimeout(() => {
+            window.print();
+            setTimeout(() => {
+                document.body.classList.remove('modo-relatorio-impressao');
+                relDiv.innerHTML = '';
+            }, 1000);
+        }, 150);
+    } catch (err) {
+        console.error("Erro ao gerar relatório para impressão:", err);
+        mostrarAlertaCustomizado("Erro Impressão", "Falha ao preparar relatório de impressão: " + (err.message || err), "bg-red-600");
+    }
+}
+
+document.getElementById('valor').addEventListener('input', atualizarPreviewParcelas); document.getElementById('parcelas').addEventListener('input', atualizarPreviewParcelas);
+['fBusca', 'fCategoria', 'fStatus', 'fIni', 'fFim'].forEach(id => document.getElementById(id).addEventListener('input', render));
+
+(async() => { 
+    try {
+        let bs = obterBancos(); 
+        if(bs.length > 0) { 
+            ABA_ATIVA = bs[0].id; 
+            DB_NAME = bs[0].id; 
+        } 
+        renderizarBotoesBancos(); 
+        await openDB(); 
+        await carregar(); 
+    } catch (err) {
+        console.error("Erro na inicialização da aplicação:", err);
+        mostrarAlertaCustomizado("Erro na Inicialização", "Falha ao inicializar o banco de dados: " + (err.message || err), "bg-red-600");
+    }
+})();
+
+// --- Suporte a PWA (Service Worker e Instalação) ---
+let deferredPromptPwa = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPromptPwa = e;
+    const btnPwa = document.getElementById('btnInstalarPwa');
+    if (btnPwa) btnPwa.classList.remove('hidden');
+});
+
+const btnInstalarPwaEl = document.getElementById('btnInstalarPwa');
+if (btnInstalarPwaEl) {
+    btnInstalarPwaEl.addEventListener('click', async () => {
+        if (!deferredPromptPwa) return;
+        deferredPromptPwa.prompt();
+        const { outcome } = await deferredPromptPwa.userChoice;
+        if (outcome === 'accepted') {
+            btnInstalarPwaEl.classList.add('hidden');
+        }
+        deferredPromptPwa = null;
+    });
+}
+
+window.addEventListener('appinstalled', () => {
+    const btnPwa = document.getElementById('btnInstalarPwa');
+    if (btnPwa) btnPwa.classList.add('hidden');
+    deferredPromptPwa = null;
+});
+
+// Registro defensivo do Service Worker (ativo em Web/PWA, seguro em webviews desktop)
+const isTauriApp = !!(window.__TAURI_INTERNALS__ || window.__TAURI__);
+if (!isTauriApp && 'serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch((err) => {
+            console.log('Service Worker não registrado:', err);
+        });
+    });
+}
+</script>
+<div id="relatorio-impressao" style="display:none;"></div>
+<input type="file" id="fileImport" accept=".json" class="hidden" onchange="importarBackup(event)">
+
+<!-- Modal de escolha de modo de importação -->
+<div id="importModeModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] hidden">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+        <div class="bg-sky-600 p-4 text-white font-bold text-base flex items-center gap-2">📤 Importar Backup</div>
+        <div class="p-5 space-y-3">
+            <p class="text-sm text-slate-600 font-medium">Como deseja importar os dados do arquivo?</p>
+            <button onclick="executarImportacao('mesclar')" class="w-full p-4 border-2 border-sky-200 rounded-xl hover:bg-sky-50 hover:border-sky-400 transition text-left group">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🔄</span>
+                    <div>
+                        <span class="font-bold text-slate-800 block text-sm group-hover:text-sky-700">Mesclar / Acrescentar</span>
+                        <span class="text-xs text-slate-500">Mantém seus dados atuais e acrescenta os novos do arquivo. Ideal para juntar celular + desktop.</span>
+                    </div>
+                </div>
+            </button>
+            <button onclick="executarImportacao('substituir')" class="w-full p-4 border-2 border-red-200 rounded-xl hover:bg-red-50 hover:border-red-400 transition text-left group">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🗑️</span>
+                    <div>
+                        <span class="font-bold text-slate-800 block text-sm group-hover:text-red-700">Substituir Tudo</span>
+                        <span class="text-xs text-slate-500">Apaga todos os dados atuais e restaura exatamente o conteúdo do arquivo.</span>
+                    </div>
+                </div>
+            </button>
+            <button onclick="fecharModalImportacao()" class="w-full mt-2 py-2 text-sm text-slate-500 hover:text-slate-700 font-medium transition">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
